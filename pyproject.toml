@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "telegram bot"
+version = "0.1.0"
+description = ""
+authors = ["hillow <andrew.hillow@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+python-dotenv = "^0.21.1"
+aiogram = {url = "https://github.com/aiogram/aiogram/archive/refs/heads/dev-3.x.zip"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
