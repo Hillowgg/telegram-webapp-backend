@@ -1,14 +1,17 @@
 [tool.poetry]
-name = "telegram bot"
+name = "backend"
 version = "0.1.0"
-description = ""
+description = "backend for telegram calendar"
 authors = ["hillow <andrew.hillow@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.9"
 python-dotenv = "^0.21.1"
-aiogram = {url = "https://github.com/aiogram/aiogram/archive/refs/heads/dev-3.x.zip"}
+python-telegram-bot = "^20.0"
+aiosqlite = "^0.18.0"
+fastapi = "^0.89.1"
+uvicorn = "^0.20.0"
 
 
 [build-system]

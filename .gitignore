@@ -2,3 +2,6 @@
 venv
 .idea
 poetry.lock
+**/__pycache__
+**/*.pyc
+*.pem
