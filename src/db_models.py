@@ -8,6 +8,17 @@ class Permission(Enum):
     owner = 'owner'
     editor = 'editor'
     viewer = 'viewer'
+    no = 'no'
+
+
+class DayOfWeek(Enum):
+    monday = 'monday'
+    tuesday = 'tuesday'
+    wednesday = 'wednesday'
+    thursday = 'thursday'
+    friday = 'friday'
+    saturday = 'saturday'
+    sunday = 'sunday'
 
 
 class Calendar(Model):
@@ -29,10 +40,11 @@ class CalendarUser(Model):
     id = fields.IntField(pk=True)
 
     telegram_id = fields.IntField()
-    permission = fields.CharEnumField(Permission, default=None)
+    # permission = fields.CharEnumField(Permission, default=Permission.no)
+    permission = fields.CharField(max_length=10, default=None)
 
     calendar: fields.ForeignKeyRelation[Calendar] = fields.ForeignKeyField('models.Calendar', related_name='users',
-                                                                            to_field='id')
+                                                                           to_field='id')
 
     def __str__(self):
         return self.id
@@ -44,32 +56,23 @@ class TimeTable(Model):
     name = fields.CharField(max_length=30)
 
     calendar: fields.ForeignKeyRelation[Calendar] = fields.ForeignKeyField('models.Calendar',
-                                                                            related_name='timetables',
-                                                                            to_field='id')
+                                                                           related_name='timetables',
+                                                                           to_field='id')
 
-    odd_week: fields.ReverseRelation['Day']
-    even_week: fields.ReverseRelation['Day']
+    tasks: fields.ReverseRelation['Task']
 
     def __str__(self):
         return self.name
-
-
-class Day(Model):
-    id = fields.IntField(pk=True)
-
-    timetable: fields.ForeignKeyRelation[TimeTable] = fields.ForeignKeyField('models.TimeTable')
-
-    tasks: fields.ManyToManyRelation['Task'] = fields.ManyToManyField('models.Task', related_name='days')
-
-    def __str__(self):
-        return self.id
 
 
 class Task(Model):
     id = fields.IntField(pk=True)
 
     name = fields.CharField(max_length=120)
-    days: fields.ManyToManyRelation[Day]
+    timetable = fields.ForeignKeyField('models.TimeTable', related_name='tasks', to_field='id')
+    # day_of_week = fields.CharEnumField(DayOfWeek, default=DayOfWeek.monday)
+    day_of_week = fields.CharField(max_length=10, default=None)
+    week_parity = fields.BooleanField(default=True)
 
     start_time = fields.SmallIntField()
     end_time = fields.SmallIntField()
