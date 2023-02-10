@@ -2,6 +2,7 @@ from enum import Enum
 
 from tortoise.models import Model
 from tortoise import fields
+from tortoise.contrib.pydantic import pydantic_model_creator
 
 
 class Permission(Enum):
@@ -33,7 +34,17 @@ class Calendar(Model):
     timetables = fields.ReverseRelation['TimeTable']
 
     def __str__(self):
-        return self.uuid
+        return str(self.id)
+
+    class Meta:
+        table = 'calendar'
+
+    class PydanticMeta:
+        exclude = ['id']
+        allow_cycles = True
+        max_recursion = 4
+        include = ['users', 'timetables']
+        # computed = ("usrs",)
 
 
 class CalendarUser(Model):
@@ -48,6 +59,11 @@ class CalendarUser(Model):
 
     def __str__(self):
         return self.id
+
+    class Meta:
+        table = 'user'
+    class PydanticMeta:
+        exclude = ['id']
 
 
 class TimeTable(Model):
@@ -64,6 +80,13 @@ class TimeTable(Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        table = 'timetable'
+
+    class PydancticMeta:
+        include = ['tasks']
+        exclude = ['id']
+
 
 class Task(Model):
     id = fields.IntField(pk=True)
@@ -77,5 +100,15 @@ class Task(Model):
     start_time = fields.SmallIntField()
     end_time = fields.SmallIntField()
 
+    class Meta:
+        table = 'task'
     def __str__(self):
         return self.name
+
+    class PydanticMeta:
+        exclude = ['id']
+
+Calendar_pydantic = pydantic_model_creator(Calendar, name="Calendar")
+User_pydantic = pydantic_model_creator(CalendarUser, name="User")
+TimeTable_pydantic = pydantic_model_creator(TimeTable, name="TimeTable")
+Task_pydantic = pydantic_model_creator(Task, name="Task")
