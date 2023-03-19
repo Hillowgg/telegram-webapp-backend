@@ -28,3 +28,5 @@ class WebAppInitData(BaseModel):
     can_send_after: int | None
     auth_date: int | None
     hash: str | None
+
+# {"auth_date": "1676535272","hash": "f51fd075bd17341ea97c985bba9a0d6fc32eab2d103014afaadd3b578761676b", "query_id": "AAEa-cALAAAAABr5wAszfxSY","user": {"id": 197196058, "first_name": "Hillow", "last_name": "", "username": "Hillow", "language_code": "en"}}

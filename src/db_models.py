@@ -1,6 +1,7 @@
 from enum import Enum
 
-from tortoise.models import Model
+from typing import Any
+from tortoise.models import Model, QuerySet
 from tortoise import fields
 from tortoise.contrib.pydantic import pydantic_model_creator
 
@@ -31,7 +32,7 @@ class Calendar(Model):
 
     is_public = fields.BooleanField(default=False)
 
-    timetables = fields.ReverseRelation['TimeTable']
+    timetables = fields.ReverseRelation['Timetable']
 
     def __str__(self):
         return str(self.id)
@@ -40,11 +41,7 @@ class Calendar(Model):
         table = 'calendar'
 
     class PydanticMeta:
-        exclude = ['id']
-        allow_cycles = True
-        max_recursion = 4
-        include = ['users', 'timetables']
-        # computed = ("usrs",)
+        exclude = ['id', 'users']
 
 
 class CalendarUser(Model):
@@ -52,7 +49,7 @@ class CalendarUser(Model):
 
     telegram_id = fields.IntField()
     # permission = fields.CharEnumField(Permission, default=Permission.no)
-    permission = fields.CharField(max_length=10, default=None)
+    permission = fields.SmallIntField(default=0)
 
     calendar: fields.ForeignKeyRelation[Calendar] = fields.ForeignKeyField('models.Calendar', related_name='users',
                                                                            to_field='id')
@@ -62,14 +59,13 @@ class CalendarUser(Model):
 
     class Meta:
         table = 'user'
+
     class PydanticMeta:
         exclude = ['id']
 
 
-class TimeTable(Model):
+class Timetable(Model):
     id = fields.IntField(pk=True)
-
-    name = fields.CharField(max_length=30)
 
     calendar: fields.ForeignKeyRelation[Calendar] = fields.ForeignKeyField('models.Calendar',
                                                                            related_name='timetables',
@@ -83,16 +79,15 @@ class TimeTable(Model):
     class Meta:
         table = 'timetable'
 
-    class PydancticMeta:
-        include = ['tasks']
-        exclude = ['id']
+    class PydanticMeta:
+        exclude = ["id"]
 
 
 class Task(Model):
     id = fields.IntField(pk=True)
 
     name = fields.CharField(max_length=120)
-    timetable = fields.ForeignKeyField('models.TimeTable', related_name='tasks', to_field='id')
+    timetable = fields.ForeignKeyField('models.Timetable', related_name='tasks', to_field='id')
     # day_of_week = fields.CharEnumField(DayOfWeek, default=DayOfWeek.monday)
     day_of_week = fields.CharField(max_length=10, default=None)
     week_parity = fields.BooleanField(default=True)
@@ -102,13 +97,14 @@ class Task(Model):
 
     class Meta:
         table = 'task'
+
     def __str__(self):
         return self.name
 
     class PydanticMeta:
         exclude = ['id']
 
-Calendar_pydantic = pydantic_model_creator(Calendar, name="Calendar")
-User_pydantic = pydantic_model_creator(CalendarUser, name="User")
-TimeTable_pydantic = pydantic_model_creator(TimeTable, name="TimeTable")
-Task_pydantic = pydantic_model_creator(Task, name="Task")
+# Calendar_pydantic = pydantic_model_creator(Calendar, name='Calendar')
+# Timetable_pydantic = pydantic_model_creator(Timetable, name='Timetable')
+# CalendarUser_pydantic = pydantic_model_creator(CalendarUser, name='User')
+# Task_pydantic = pydantic_model_creator(Task, name='Task')
