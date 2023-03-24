@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import FastAPI, HTTPException, Depends, status
 from tortoise.contrib.fastapi import register_tortoise
 
-from backend.src.models import Calendar, CalendarUser, Calendar_pydantic
+from backend.src.models import Calendar, CalendarUser, Calendar_pydantic, Task, Task_pydantic
 from backend.src.telegram_models import WebAppInitData
 
 TELEGRAM_BOT_TOKEN = os.getenv('TOKEN')
@@ -36,7 +36,6 @@ TelegramDep = Annotated[WebAppInitData, Depends(telegram_credentials_validation)
 
 @app.post('/api/calendar')
 async def get_calendar(telegram_credentials: TelegramDep):
-    print(telegram_credentials)
     user_fetch = await CalendarUser.filter(telegram_id=telegram_credentials.user.id, permission=2).first()
     calendar_fetch = await Calendar.filter(users__id=user_fetch.id).first()
 
@@ -84,21 +83,23 @@ async def change_user_role(telegram_credentials: TelegramDep, uuid: str):
 async def add_task(
         uuid: str,
         telegram_credentials: TelegramDep,
-        task
+        task: Task_pydantic
 ):
 
     calendar_fetch = await Calendar.filter(uuid=uuid).first()
-    calendar_pydantic = await Calendar_pydantic.from_tortoise_orm(calendar_fetch)
 
     if not calendar_fetch:
         return HTTPException(status_code=404, detail='Calendar not found')
 
-    user = await CalendarUser.filter(calendar=calendar_fetch, telegram_id=197196058).first()
+    user = await CalendarUser.filter(calendar=calendar_fetch, telegram_id=telegram_credentials.user.id).first()
 
     if user is None or user.permission < 1:
         raise HTTPException(status_code=403, detail='Permission denied')
 
-    return NotImplemented
+    res = await Task.create(task)
+
+    if res is None:
+        raise HTTPException(status_code=500, detail='Failed to add task')
 
 
 @app.post('/api/task/remove_by_id')
