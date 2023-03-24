@@ -1,8 +1,8 @@
 from enum import Enum
-
 from typing import Any
+
+from tortoise import fields, Tortoise
 from tortoise.models import Model, QuerySet
-from tortoise import fields
 from tortoise.contrib.pydantic import pydantic_model_creator
 
 
@@ -104,7 +104,10 @@ class Task(Model):
     class PydanticMeta:
         exclude = ['id']
 
-# Calendar_pydantic = pydantic_model_creator(Calendar, name='Calendar')
-# Timetable_pydantic = pydantic_model_creator(Timetable, name='Timetable')
-# CalendarUser_pydantic = pydantic_model_creator(CalendarUser, name='User')
-# Task_pydantic = pydantic_model_creator(Task, name='Task')
+
+Tortoise.init_models(['models'], 'models')
+
+Calendar_pydantic = pydantic_model_creator(Calendar, name='Calendar')
+Timetable_pydantic = pydantic_model_creator(Timetable, name='Timetable')
+CalendarUser_pydantic = pydantic_model_creator(CalendarUser, name='User')
+Task_pydantic = pydantic_model_creator(Task, name='Task')

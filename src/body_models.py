@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from backend.src.telegram_models import WebAppInitData
 
 class APIBodyABC(BaseModel):
-    telegram_data: WebAppInitData | None
+    pass
 
 
 class TaskData(BaseModel):

@@ -1,102 +1,102 @@
 import hashlib
 import hmac
 import os
+from typing import Annotated
 
-from fastapi import FastAPI, Query, HTTPException, Depends, Body
+from fastapi import FastAPI, HTTPException, Depends, status
 from tortoise.contrib.fastapi import register_tortoise
-from tortoise.contrib.pydantic import pydantic_model_creator
 
-from backend.src.body_models import APICalendarData, APITaskData
-from backend.src.db_models import Calendar, CalendarUser
+from backend.src.models import Calendar, CalendarUser, Calendar_pydantic
 from backend.src.telegram_models import WebAppInitData
 
-TELEGRAM_BOT_TOKEN = os.getenv("TOKEN")
+TELEGRAM_BOT_TOKEN = os.getenv('TOKEN')
 app = FastAPI()
 
 
-async def validate_request(telegram_data: WebAppInitData):
-    # print(telegram_data.json(exclude_none=True))
-    data_check_string = "\n".join(
-        sorted([f'{k}={v}' for k, v in telegram_data.dict(exclude_none=True).items() if k != 'hash']))
+async def telegram_credentials_validation(telegram_credentials: WebAppInitData):
+    data_check_string = '\n'.join(
+        sorted([f'{k}={v}' for k, v in telegram_credentials.dict(exclude_none=True).items() if k != 'hash']))
 
-    data_check_string = data_check_string.replace("'", '"').replace(' ', '')
+    data_check_string = data_check_string.replace('\'', '\"').replace(' ', '')
 
     secret = hmac.new(msg=TELEGRAM_BOT_TOKEN.encode('utf-8'), key=b'WebAppData', digestmod=hashlib.sha256)
 
     true_hash = hmac.new(msg=data_check_string.encode('utf-8'), key=secret.digest(),
                          digestmod=hashlib.sha256).hexdigest()
-    return true_hash == telegram_data.hash
+    if true_hash != telegram_credentials.hash:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Wrong telegram credentials",
+        )
+    return telegram_credentials
 
 
-@app.post("/api/calendar", tags=["calendar"],
-          dependencies=[Depends(validate_request)]
-          )
-# @validate_request
-async def get_calendar(
-        calendar_uuid: str = Query(..., alias="calendar_uuid"),
-        telegram_data: APICalendarData | None = Body(...),
-        allowed: Depends = Depends(validate_request)
-):
-    if not allowed:
-        raise HTTPException(status_code=403, detail='Wrong credentials')
+TelegramDep = Annotated[WebAppInitData, Depends(telegram_credentials_validation)]
 
-    Calendar_pydantic = pydantic_model_creator(Calendar, name="Calendar")
 
-    calendar_fetch = await Calendar.filter(uuid=calendar_uuid).first()
-    calendar_pydantic = await Calendar_pydantic.from_tortoise_orm(calendar_fetch)
+@app.post('/api/calendar')
+async def get_calendar(telegram_credentials: TelegramDep):
+    print(telegram_credentials)
+    user_fetch = await CalendarUser.filter(telegram_id=telegram_credentials.user.id, permission=2).first()
+    calendar_fetch = await Calendar.filter(users__id=user_fetch.id).first()
 
+    calendar = await Calendar_pydantic.from_tortoise_orm(calendar_fetch)
+
+    return calendar
+
+
+@app.post('/api/calendar/{uuid}')
+async def get_calendar_by_uuid(telegram_credentials: TelegramDep, uuid: str):
+    calendar_fetch = await Calendar.filter(uuid=uuid).first()
     if not calendar_fetch:
-        return HTTPException(status_code=404, detail="Calendar not found")
+        return HTTPException(status_code=404, detail='Calendar not found')
 
-    user = await CalendarUser.filter(calendar=calendar_fetch, telegram_id=197196058).first()
+    user_fetch = await CalendarUser.filter(calendar=calendar_fetch, telegram_id=telegram_credentials.user.id).first()
+    if user_fetch is None:
+        raise HTTPException(status_code=403, detail='Permission denied')
 
-    if user is None:
-        raise HTTPException(status_code=403, detail="Permission denied")
+    calendar = await Calendar_pydantic.from_tortoise_orm(calendar_fetch)
 
-    return calendar_pydantic.timetables
+    return calendar.timetables
 
 
-@app.post('/api/calendar/create')
-async def create_calendar():
+@app.post('/api/calendar/{uuid}/create')
+async def create_calendar(telegram_credentials: TelegramDep, uuid: str):
     return NotImplemented
 
 
-@app.post('/api/calendar/add_user')
-async def add_user_to_calendar():
+@app.post('/api/calendar/{uuid}/user/add')
+async def add_user_to_calendar(telegram_credentials: TelegramDep, uuid: str):
     return NotImplemented
 
 
-@app.post('/api/calendar/remove_user')
-async def remove_user_from_calendar():
+@app.post('/api/calendar/{uuid/user/remove')
+async def remove_user_from_calendar(telegram_credentials: TelegramDep, uuid: str):
     return NotImplemented
 
 
-@app.post('/api/calendar/change_user_role')
-async def change_user_role():
+@app.post('/api/calendar/{uuid}/user/change_role')
+async def change_user_role(telegram_credentials: TelegramDep, uuid: str):
     return NotImplemented
 
 
-@app.post("/api/task/add")
+@app.post('/api/calendar/{uuid}/task/add')
 async def add_task(
-        calendar_uuid: str = Query(..., alias="calendar_uuid"),
-        data: APITaskData = Body(...),
-        allowed: Depends = Depends(validate_request)
+        uuid: str,
+        telegram_credentials: TelegramDep,
+        task
 ):
-    if not allowed:
-        raise HTTPException(status_code=403, detail='Wrong credentials')
 
-    Calendar_pydantic = pydantic_model_creator(Calendar, name="Calendar")
-
-    calendar_fetch = await Calendar.filter(uuid=calendar_uuid).first()
+    calendar_fetch = await Calendar.filter(uuid=uuid).first()
     calendar_pydantic = await Calendar_pydantic.from_tortoise_orm(calendar_fetch)
 
     if not calendar_fetch:
-        return HTTPException(status_code=404, detail="Calendar not found")
+        return HTTPException(status_code=404, detail='Calendar not found')
 
     user = await CalendarUser.filter(calendar=calendar_fetch, telegram_id=197196058).first()
 
     if user is None or user.permission < 1:
-        raise HTTPException(status_code=403, detail="Permission denied")
+        raise HTTPException(status_code=403, detail='Permission denied')
 
     return NotImplemented
 
@@ -106,12 +106,14 @@ async def remove_task():
     return NotImplemented
 
 
-register_tortoise(
-    app,
-    db_url="sqlite://db.sqlite3",
-    modules={"models": ["backend.src.db_models"]},
-    generate_schemas=False,
-    add_exception_handlers=True
-)
+@app.on_event("startup")
+async def startup_event():
+    register_tortoise(
+        app,
+        db_url='sqlite://db.sqlite3',
+        modules={'models': ['backend.src.models']},
+        generate_schemas=False,
+        add_exception_handlers=True
+    )
 
-# "query_id=AAEa-cALAAAAABr5wAsl8McX&user={"id":197196058,"first_name":"Hillow","last_name":"","username":"Hillow","language_code":"en"}&auth_date=1676290535&hash=05a2fad9bae858663aacdba807dc986588b0ccbafb3f221baa48d493ecf0ed2e"
+# 'query_id=AAEa-cALAAAAABr5wAsl8McX&user={'id':197196058,'first_name':'Hillow','last_name':'','username':'Hillow','language_code':'en'}&auth_date=1676290535&hash=05a2fad9bae858663aacdba807dc986588b0ccbafb3f221baa48d493ecf0ed2e'
